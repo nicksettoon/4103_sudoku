@@ -7,7 +7,6 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 struct WorkStation {//struct for a worker's stuff
     int checktoperf;
     enum WorkerType type;
-    char msg[50];
 };
 
 void* verifySudokuWorker(void* station_in)
@@ -19,38 +18,41 @@ void* verifySudokuWorker(void* station_in)
     {
         case 0://ROW_WORKER
             pthread_mutex_lock(&mutex);
-            printf("I am a row worker, checking the %dth row.", station->checktoperf);
+            printf("I am a row worker, checking row %d.\n", station->checktoperf);
             pthread_mutex_unlock(&mutex);
             break;
         case 1://COL_WORKER
             pthread_mutex_lock(&mutex);
-            printf("I am a col worker, checking the %dth col.", station->checktoperf);
+            printf("I am a col worker, checking col %d.\n", station->checktoperf);
             pthread_mutex_unlock(&mutex);
             break;
         case 2://BOX_WORKER
             pthread_mutex_lock(&mutex);
-            printf("I am a box worker, checking the %dth box.", station->checktoperf);
+            printf("I am a box worker, checking box %d.\n", station->checktoperf);
             pthread_mutex_unlock(&mutex);
             break;
     }
 }
 
-void getPuzzle(int* puzzle)
-{//opens file, gets puzzle state and stores it at the recieved location.
+int main()
+{//home's where the main is.
+    const int CPU_THREAD_COUNT = 12;
+    //import sudoku puzzle from file into 2d array
     FILE* infile = fopen("test.txt","r");
-    char buffer[25]; //array for line by line read buffer
+    int puzzle[81]; //array for sudoku puzzle state
+    char buffer[21]; //array for line by line read buffer
 
     if (infile == NULL){//open file
         printf("File not opened.");
-        return;
+        return 0;
     }
     else
-        printf("File opened.");
+        printf("File opened.\n");
 
     int i = 0; //interator for filling puzzle array
-    while (fgets(buffer, 25, infile) != NULL)
+    while (fgets(buffer, 21, infile) != NULL)
     {//grab each line of the sudoku puzzle in the text file
-        // printf("%s", buffer);
+        printf("%s", buffer);
         for (int c = 0; c < sizeof(buffer) ; c++)
         {//for each letter in that line, add it to puzzle, skipping whitespace and newline
             if (buffer[c] != 32 && buffer[c] != 10 && buffer[c] != 85 && !(buffer[c] <= 0))
@@ -60,16 +62,13 @@ void getPuzzle(int* puzzle)
             }
         }
     }
-
     fclose(infile);
-}
+    printf("\n");
 
-int main()
-{//home's where the main is.
-    const int CPU_THREAD_COUNT = 12;
-    //import sudoku puzzle from file into 2d array
-    int puzzle[81]; //array for sudoku puzzle state
-    getPuzzle(puzzle); //fill puzzle from txt file
+    for (int i = 0; i < 81; i++){
+        printf("%d",puzzle[i]);
+    }
+    printf("\n");
 
     int checks[3] = {0,0,0};//array for keeping track of which sudoku checks have been scheduled and which ones havent. There are 3 types of check rows, cols, and boxes and each type has 9 checks to be made. checks start positions will always be scheduled in following order:
     //rows: 0, 9, 18, etc...
