@@ -1,28 +1,39 @@
 #include <stdio.h>
 #include <pthread.h>
 
-// enum WorkerType {ROW_WORKER, COL_WORKER, BOX_WORKER};
+enum WorkerType {ROW_WORKER = 0, COL_WORKER, BOX_WORKER};
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-// struct verify_set {
-//     int startposition;
-//     enum WorkerType type;
-// };
+struct WorkStation {//struct for a worker's stuff
+    int checktoperf;
+    enum WorkerType type;
+    char msg[50];
+};
 
-// void* verifySudokuWorker(void* set_in)
-// {//worker thread of execution which verifies a line or a square of nine characters as a valid sudoku combo or not
-//     //cast incoming struct from void* to verify_set
-//     struct verify_set* workingset = (struct verify_set*) set_in;
+void* verifySudokuWorker(void* station_in)
+{//worker thread of execution which verifies a line or a square of nine characters as a valid sudoku combo or not
+    //cast incoming struct from void* to WorkStation
+    struct WorkStation* station = (struct WorkStation*) station_in;
 
-//     switch (workingset->type)
-//     {
-//         case 0://ROW_WORKER
-//             break;
-//         case 1://COL_WORKER
-//             break;
-//         case 2://BOX_WORKER
-//             break;
-//     }
-// }
+    switch (station->type)
+    {
+        case 0://ROW_WORKER
+            pthread_mutex_lock(&mutex);
+            printf("I am a row worker, checking the %dth row.", station->checktoperf);
+            pthread_mutex_unlock(&mutex);
+            break;
+        case 1://COL_WORKER
+            pthread_mutex_lock(&mutex);
+            printf("I am a col worker, checking the %dth col.", station->checktoperf);
+            pthread_mutex_unlock(&mutex);
+            break;
+        case 2://BOX_WORKER
+            pthread_mutex_lock(&mutex);
+            printf("I am a box worker, checking the %dth box.", station->checktoperf);
+            pthread_mutex_unlock(&mutex);
+            break;
+    }
+}
 
 void getPuzzle(int* puzzle)
 {//opens file, gets puzzle state and stores it at the recieved location.
@@ -31,13 +42,15 @@ void getPuzzle(int* puzzle)
 
     if (infile == NULL){//open file
         printf("File not opened.");
-        return 1;
+        return;
     }
+    else
+        printf("File opened.");
 
     int i = 0; //interator for filling puzzle array
     while (fgets(buffer, 25, infile) != NULL)
     {//grab each line of the sudoku puzzle in the text file
-        printf("%s", buffer);
+        // printf("%s", buffer);
         for (int c = 0; c < sizeof(buffer) ; c++)
         {//for each letter in that line, add it to puzzle, skipping whitespace and newline
             if (buffer[c] != 32 && buffer[c] != 10 && buffer[c] != 85 && !(buffer[c] <= 0))
@@ -53,26 +66,43 @@ void getPuzzle(int* puzzle)
 
 int main()
 {//home's where the main is.
+    const int CPU_THREAD_COUNT = 12;
     //import sudoku puzzle from file into 2d array
     int puzzle[81]; //array for sudoku puzzle state
     getPuzzle(puzzle); //fill puzzle from txt file
 
-    return 0;
+    int checks[3] = {0,0,0};//array for keeping track of which sudoku checks have been scheduled and which ones havent. There are 3 types of check rows, cols, and boxes and each type has 9 checks to be made. checks start positions will always be scheduled in following order:
+    //rows: 0, 9, 18, etc...
+    //cols: 0, 1, 2, 3, etc...
+    //boxes, 0, 3, 6, 27, 30, 33, etc...
 
+    pthread_t tids[CPU_THREAD_COUNT];
+    pthread_attr_t attrs[CPU_THREAD_COUNT];
+    struct WorkStation desks[CPU_THREAD_COUNT];
+
+    for (int i = 0; i < CPU_THREAD_COUNT;i++)
+    {
     //generate thread starting positions
-    //spawn threads
-    // pthread_t tids[6];
-    // pthread_attr_t attrs[6];
-    // for (int i=0;i<6;i++){
-    //     pthread_attr_init(&attrs[i]); //init thread attributes
-    //     pthread_create(&tids[i], &attrs[i], verifySudokuWorker, &testset);
-    // }
+    //spawn all box threads first if possible
+        int checktype = i % 3;
+        desks[i].type = checktype; //tell worker what kind of worker it is
+        desks[i].checktoperf = checks[checktype];//tell the worker which check it is performing
+        pthread_attr_init(&attrs[i]); //init thread attributes
+        pthread_create(&tids[i], &attrs[i], verifySudokuWorker, &desks[i]);
+        checks[checktype]++;
+    }
 
+    // }
     //wait for threads to complete
-    // pthread_join(tid, NULL);
+
+    for (int i = 0; i < CPU_THREAD_COUNT; i++)
+    {
+        pthread_join(tids[i], NULL);
+    }
 
     //output results
 
+    return 1;
 }
 
 //pthread_create(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine) (void *), void *arg);
